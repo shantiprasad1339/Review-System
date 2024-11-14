@@ -1,4 +1,4 @@
-import React from 'react'
+import React,{useEffect,useState} from 'react'
 
 import DataTable from 'react-data-table-component';
 import bid_1 from '../../images/bid/bid_1.jpg'
@@ -7,94 +7,29 @@ import bid_3 from '../../images/bid/bid_3.jpg'
 import { Footer } from '../footer/footer';
 import { Link } from 'react-router-dom';
 import logo from '../../images/logo/favicon.png'
-
- 
+import Navbar from '../navbar/Navbar';
+ import axios from 'axios';
+ import Loader from "react-js-loader";
+ import {  useNavigate } from "react-router-dom";
 
 function Dashboard() {
-  
-  const filters_data = [
-    {
-  img:bid_1,
-  headding:"Shri Shyam Cafe & Family Restaurant",
-  pr_1:"15",
-  pr_2:"17",
+  const[clientsData,setClientsData] = useState()
+  const[eyeToggle,setEyeToggle] = useState(true)
+  const [showModal, setShowModal] = useState(false);
+  const[otp,setOtp] = useState()
+  const[otpMsg,setOtpMsg]=useState("Enter Validation Otp")
+  const [text_color,setText_color]=useState('')
+  const[loaderToggle,setLoaderToggle] = useState(false)
+
+  const[profileData,setProfileData] = useState({
+    username: localStorage.getItem("username") || '',
+    email: localStorage.getItem("userEmail") || '',
+    password:'',
+    oldpassword:'',
+
+  })
+  const navigate = useNavigate()
  
-     time:"13 Hours"
-    },
-    {
-      img:bid_2,
-      headding:"Super OYO Flagship Hotel Z",
-      pr_1:"15",
-      pr_2:"17",
-     
-         time:"13 Hours"
-        },
-        {
-          img:bid_3,
-          headding:"Hotel Jaipur Heritage",
-          pr_1:"15",
-          pr_2:"17",
-         
-             time:"13 Hours"
-            },
-            {
-              img:bid_1,
-              headding:"Shri Shyam Cafe & Family Restaurant",
-              pr_1:"15",
-              pr_2:"17",
-             
-                 time:"13 Hours"
-                },
-                {
-                  img:bid_2,
-                  headding:"Super OYO Flagship Hotel Z",
-                  pr_1:"15",
-                  pr_2:"17",
-               
-                     time:"13 Hours"
-                    },
-                    {
-                      img:bid_3,
-                      headding:"Hotel Jaipur Heritage",
-                      pr_1:"15",
-                      pr_2:"17",
-                   
-                         time:"13 Hours"
-                        },
-                        {
-                          img:bid_1,
-                          headding:"Shri Shyam Cafe & Family Restaurant",
-                          pr_1:"15",
-                          pr_2:"17",
-                         
-                             time:"13 Hours"
-                            },
-                            {
-                              img:bid_2,
-                              headding:"Super OYO Flagship Hotel Z",
-                              pr_1:"15",
-                              pr_2:"17",
-                           
-                                 time:"13 Hours"
-                                },
-                                {
-                                  img:bid_3,
-                                  headding:"Hotel Jaipur Heritage",
-                                  pr_1:"15",
-                                  pr_2:"17",
-                              
-                                     time:"13 Hours"
-                                    },
-                                    {
-                                      img:bid_1,
-                                      headding:"Shri Shyam Cafe & Family Restaurant",
-                                      pr_1:"15",
-                                      pr_2:"17",
-                                     
-                                         time:"13 Hours"
-                                        },
- 
-  ]
   const columns = [
     {
       name: 'Review Id',
@@ -192,8 +127,113 @@ function Dashboard() {
 
     },
   ]
+
+
+
+  useEffect(() => {
+    const refreshToken = localStorage.getItem("refreshToken");
+    const username = localStorage.getItem("username");
+    const email = localStorage.getItem("userEmail");
+    
+    axios
+      .post("http://64.227.167.55:8080/A2G/token/refresh/", {
+        refresh: refreshToken,
+      })
+      .then((response) => {
+        GetclientsData(response.data.access);
+
+      
+      })
+      .catch((error) => alert('LogIn Again!'));
+  }, []);
+  function GetclientsData(token){
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer" + " " + token,
+    };
+    axios.get("http://64.227.167.55:8080/A2G/Jointest/", {
+      headers,
+     
+    })
+      .then(response => setClientsData(response.data.data))
+      .catch(error =>  alert('LogIn Again!'));
+  }
+  const logOutFn = () => {
+   
+    
+    localStorage.clear();
+    navigate("/login");
+      
+     
+    
+  };
+  
+  function verify_otp() {
+    axios.post('http://64.227.167.55:8080/A2G/verify_otp/', {
+      email: profileData.email,
+      otp: otp
+    })
+    .then((res) => {
+      console.log("OTP verification successful:", res.data);
+      if(res.data.msg == "Varification Successfull !"){
+        setShowModal(false); 
+        navigate('/login');
+      }else{
+        setOtpMsg(res.data.msg)
+        setText_color('red')
+      }
+    })
+    .catch((error) => {
+      console.error("OTP verification error:", error.response?.data);
+    });
+  }
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+function mailSender(){
+  const accessToken = localStorage.getItem("accessToken");
+  setLoaderToggle(true)
+  const changePasswordData = {
+    password: profileData.password,
+    re_password: profileData.oldpassword,
+    username: profileData.username,
+    email: profileData.email
+  };
+  // console.log(accessToken);
+  
+  axios.post("http://64.227.167.55:8080/A2G/change-pass/", changePasswordData,{
+    headers: {
+      "Authorization": "Bearer " + accessToken,
+    }
+  }
+  
+  )
+  .then(response => {
+    console.log(response.data);
+    if(response.data.msg == "OTP sent to your email."){
+      setShowModal(true)
+    }
+    alert(response.data.msg)
+    navigate('/')
+  })
+  .catch(error =>{
+    console.log(error.response.data.msg.password);
+    if(error.response.data.code == "token_not_valid"){
+
+      alert('Please login Again')
+navigate('/login')
+    }
+    alert(error.response.data.msg.password)
+    window.location.reload()
+  });
+}
   return (
     <>
+    <Navbar/>
       <section className="dashboard_area">
         <div className="container">
           <div className="row">
@@ -204,7 +244,7 @@ function Dashboard() {
                   <button class="nav-link active" id="v-pills-home-tab" data-bs-toggle="pill" data-bs-target="#v-pills-home" type="button" role="tab" aria-controls="v-pills-home" aria-selected="true">Profile</button>
                   <button class="nav-link" id="v-pills-profile-tab" data-bs-toggle="pill" data-bs-target="#v-pills-profile" type="button" role="tab" aria-controls="v-pills-profile" aria-selected="false">Submited Reviews</button>
                   <button class="nav-link" id="v-pills-messages-tab" data-bs-toggle="pill" data-bs-target="#v-pills-messages" type="button" role="tab" aria-controls="v-pills-messages" aria-selected="false">Wallet & Withdrawal</button>
-                  <button class="nav-link" >Logout</button>
+                  <button class="nav-link" onClick={logOutFn}>Logout</button>
                 </div>
               </div>
             </div>
@@ -213,50 +253,80 @@ function Dashboard() {
                 <div class="tab-content" id="v-pills-tabContent">
                   <div class="tab-pane fade show active " id="v-pills-home" role="tabpanel" aria-labelledby="v-pills-home-tab" tabindex="0">
                     <div className="profile_box">
-                         <div className="row">
-                          <div className="col-xl-6 mb-3">
-                            <div className="form_box">
-                              <label htmlFor="">UserName</label>
-                              <input type="text" name="" id="" />
-                            </div>
-                          </div>
-                          <div className="col-xl-6 mb-3">
-                            <div className="form_box">
-                              <label htmlFor="">Full Name</label>
-                              <input type="text" name="" id="" />
-                            </div>
-                          </div>
-                          <div className="col-xl-6 mb-3">
-                            <div className="form_box">
-                              <label htmlFor="">Mobile Number</label>
-                              <input type="text" name="" id="" />
-                            </div>
-                          </div>
-                          <div className="col-xl-6 mb-3">
-                            <div className="form_box">
-                              <label htmlFor="">Email Id</label>
-                              <input type="text" name="" id="" />
-                            </div>
-                          </div>
-                          <div className="col-xl-6 mb-3">
-                            <div className="form_box">
-                              <label htmlFor="">Password</label>
-                              <input type="text" name="" id="" />
-                            </div>
-                          </div>
-                          <div className="col-xl-6 mb-3">
-                            <div className="form_box">
-                              <label htmlFor="">Re-Password</label>
-                              <input type="text" name="" id="" />
-                            </div>
-                          </div>
-                         
-                          <div className="col-xl-12 mb-3">
-                            <div className="form_box">
-                                  <button>Submit</button>
-                            </div>
-                          </div>
-                         </div>
+                    <div className="row">
+      <div className="col-xl-6 mb-4">
+        <div className="form_box">
+          <label htmlFor="username">UserName</label>
+          <input
+            type="text"
+            name="username"
+            id="username"
+            value={profileData.username}
+            onChange={handleInputChange}
+          />
+        </div>
+      </div>
+
+      <div className="col-xl-6 mb-4">
+        <div className="form_box position-relative">
+          <label htmlFor="email">Email Id</label>
+          <input
+            type="email"
+            name="email"
+            id="email"
+            value={profileData.email}
+            onChange={handleInputChange}
+          />
+         
+        </div>
+      </div>
+
+      <div className="col-xl-6 mb-4">
+        <div className="form_box">
+          <label htmlFor="oldpassword">Change Password</label>
+          <input
+            type={eyeToggle ? 'password' : 'text'}
+            name="oldpassword"
+            id="oldpassword"
+            value={profileData.oldpassword}
+            onChange={handleInputChange}
+          />
+        </div>
+      </div>
+
+      <div className="col-xl-6 mb-4">
+        <div className="form_box position-relative">
+          <label htmlFor="password">Re enter Password</label>
+          <input
+            type={eyeToggle ? 'password' : 'text'}
+            name="password"
+            id="password"
+            value={profileData.password}
+            onChange={handleInputChange}
+          />
+          {eyeToggle ? (
+            <i
+              className="fa-regular fa-eye position-absolute"
+              style={{ cursor: 'pointer', top: '51px', right: '20px' }}
+              onClick={() => setEyeToggle(!eyeToggle)}
+            ></i>
+          ) : (
+            <i
+              className="fa-regular fa-eye-slash position-absolute"
+              style={{ cursor: 'pointer', top: '51px', right: '20px' }}
+              onClick={() => setEyeToggle(!eyeToggle)}
+            ></i>
+          )}
+        </div>
+      </div>
+
+      <div className="col-xl-12 mb-4">
+        <div className="form_box">
+          <button onClick={mailSender}>Submit {loaderToggle? <Loader type="spinner-default" bgColor={"white"} size={40}/>:''}
+</button>
+        </div>
+      </div>
+    </div>
                     </div>
                   </div>
                   <div class="tab-pane fade " id="v-pills-profile" role="tabpanel" aria-labelledby="v-pills-profile-tab" tabindex="0"> 
@@ -266,24 +336,32 @@ function Dashboard() {
                              <div className="col-xl-12">
                               <div className="rev_sub_list">
                               {
-                filters_data.map((filterdata ,f1) =>(
+                clientsData && clientsData.map((filterdata ,f1) =>
+                  
+                  
+                  {
+                   
+                    
+                    
+                    return(
                   <div className="col-xxl-12">
                     <Link to="">
                   <div className="filter_box">
                   <div className="image">
-                    <img src={filterdata.img} alt="" />
+                    <img src={'https://'+filterdata.link} alt="" />
                   </div>
                   <div className="content">
                     <div className="box_1 w-100">
                     <h4>{filterdata.headding}
                     </h4>
-                    <span className='price'>Budget  {filterdata.pr_1} INR – {filterdata.pr_2} INR</span>
-                    <span className='location'><i class="fa-solid fa-location-dot"></i> Jaipur</span>
-                    <span className='task'>Total Review Task 20/100</span>
-                    <p>I'm looking for an expert who can set up an RTMP server using the pyrtmp library from PyPI. This server will receive video frames on an on_video_message</p>
+                    <span className='price'>Budget  INR – {filterdata.client_details.cost} INR</span>
+                    <span className='location'><i class="fa-solid fa-location-dot"></i> {filterdata.location}</span>
+                    <span className='task'>Total Review Task {filterdata.client_details.total_reviews}</span>
+                    <p> <h4>Your Review:</h4> {filterdata.review}</p>
              
                   <button className='btn_review_sub'>
-                  Completed
+                   
+                  {filterdata.verify_status}
                   </button>
                     </div>
                     
@@ -293,7 +371,7 @@ function Dashboard() {
                 </div>
                 </Link>
                 </div>
-                ))
+                )})
               }
                               </div>
                              </div>
@@ -375,7 +453,28 @@ function Dashboard() {
           </div>
         </div>
       </section>
-
+  {showModal && (
+        <div className="modal fade show" tabIndex="-1" style={{ display: "block" }} aria-labelledby="exampleModalLabel" aria-modal="true" role="dialog">
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title"style={{ color: text_color }} id="exampleModalLabel">{otpMsg}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <form>
+                  <div className="mb-3">
+                    <input type="number" className="form-control" placeholder="Enter OTP" onChange={(e)=>setOtp(e.target.value)}/>
+                  </div>
+                </form>
+              </div>
+              <div className="modal-footer">
+                <button onClick={verify_otp} className="btn btn-primary">Submit OTP</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 <Footer />
     </>
   )

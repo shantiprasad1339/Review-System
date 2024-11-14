@@ -1,193 +1,180 @@
-
-import React, { useLayoutEffect, useRef } from 'react'; 
-import { Pagination, Navigation } from 'swiper/modules';
-import bid_1 from '../../images/bid/bid_1.jpg'
-import bid_2 from '../../images/bid/bid_2.jpg'
-import bid_3 from '../../images/bid/bid_3.jpg'
-import { Footer } from '../footer/footer';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { CircularProgressbar } from 'react-circular-progressbar';
+import 'react-circular-progressbar/dist/styles.css';
+import Navbar from "../navbar/Navbar.jsx";
+import { Footer } from "../footer/footer";
 
 function Bids() {
-  const filters_data = [
-    {
-  img:bid_1,
-  headding:"Shri Shyam Cafe & Family Restaurant",
-  pr_1:"15",
-  pr_2:"17",
- 
-     time:"13 Hours"
-    },
-    {
-      img:bid_2,
-      headding:"Super OYO Flagship Hotel Z",
-      pr_1:"15",
-      pr_2:"17",
-     
-         time:"13 Hours"
-        },
+  const [clients, setClients] = useState([]);
+  const [location, setLocation] = useState("");
+  const [query, setQuery] = useState("");
+  const [acToken, setAcToken] = useState(null);
+  const [pageCount, setPageCount] = useState({ currentPage: 1, allPages: 1 });
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (!refreshToken) {
+      alert("Please Login First!");
+      navigate("/login");
+      return;
+    }
+
+    // Fetch location data
+    axios.get("https://ipapi.co/json/").then((response) => {
+      setLocation(response.data.city);
+      getRefreshToken(refreshToken);
+    });
+
+    function getRefreshToken(refreshToken) {
+      axios.post("http://64.227.167.55:8080/A2G/token/refresh/", {
+        refresh: refreshToken,
+      })
+      .then((response) => {
+        const accessToken = response.data.access;
+        setAcToken(accessToken);
+        if (location) {
+          getClient(accessToken, pageCount.currentPage);
+        }
+      })
+      .catch((error) => {
+        if (error.response?.data?.code === "token_not_valid") {
+          alert("Your Token Has Expired! Please Log In Again.");
+          localStorage.clear();
+          navigate("/login");
+        }
+      });
+    }
+  }, [location]);
+
+  function getClient(accessToken, page) {
+    axios
+      .get(
+        `http://64.227.167.55:8080/A2G/get_clients_data/?page=${page}&page_size=10&curr_location=${location}`,
         {
-          img:bid_3,
-          headding:"Hotel Jaipur Heritage",
-          pr_1:"15",
-          pr_2:"17",
-         
-             time:"13 Hours"
-            },
-            {
-              img:bid_1,
-              headding:"Shri Shyam Cafe & Family Restaurant",
-              pr_1:"15",
-              pr_2:"17",
-             
-                 time:"13 Hours"
-                },
-                {
-                  img:bid_2,
-                  headding:"Super OYO Flagship Hotel Z",
-                  pr_1:"15",
-                  pr_2:"17",
-               
-                     time:"13 Hours"
-                    },
-                    {
-                      img:bid_3,
-                      headding:"Hotel Jaipur Heritage",
-                      pr_1:"15",
-                      pr_2:"17",
-                   
-                         time:"13 Hours"
-                        },
-                        {
-                          img:bid_1,
-                          headding:"Shri Shyam Cafe & Family Restaurant",
-                          pr_1:"15",
-                          pr_2:"17",
-                         
-                             time:"13 Hours"
-                            },
-                            {
-                              img:bid_2,
-                              headding:"Super OYO Flagship Hotel Z",
-                              pr_1:"15",
-                              pr_2:"17",
-                           
-                                 time:"13 Hours"
-                                },
-                                {
-                                  img:bid_3,
-                                  headding:"Hotel Jaipur Heritage",
-                                  pr_1:"15",
-                                  pr_2:"17",
-                              
-                                     time:"13 Hours"
-                                    },
-                                    {
-                                      img:bid_1,
-                                      headding:"Shri Shyam Cafe & Family Restaurant",
-                                      pr_1:"15",
-                                      pr_2:"17",
-                                     
-                                         time:"13 Hours"
-                                        },
- 
-  ]
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + accessToken,
+          },
+        }
+      )
+      .then((response) => {
+        setClients(response.data.data);
+        setPageCount((prev) => ({
+          ...prev,
+          allPages: response.data.pages,
+        }));
+      })
+      .catch((error) => console.error(error));
+  }
+
+  const handleSearch = () => {
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + acToken,
+    };
+
+    axios
+      .get(`http://64.227.167.55:8080/A2G/client-search/?query=${query}&curr_location=${location}`, { headers })
+      .then((response) => {
+        setClients(response.data.data);
+      })
+      .catch((error) => alert(error.response.data.msg));
+  };
+
+  const handleNextPage = () => {
+    if (pageCount.currentPage < pageCount.allPages) {
+      setPageCount((prev) => ({ ...prev, currentPage: prev.currentPage + 1 }));
+      getClient(acToken, pageCount.currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (pageCount.currentPage > 1) {
+      setPageCount((prev) => ({ ...prev, currentPage: prev.currentPage - 1 }));
+      getClient(acToken, pageCount.currentPage - 1);
+    }
+  };
+
   return (
     <>
+      <Navbar />
       <section className="bids_area">
         <div className="container">
           <div className="row z-11">
             <div className="col-xl-7 m-auto">
               <div className="find_bids_box">
-                <h3>Find Review Catogry</h3>
+                <h3>Find Review Category</h3>
                 <div className="form_box">
-                  <input type="text" />
-                  <button className='btn'>Find</button>
+                  <input 
+                    type="text" 
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Enter search query" 
+                  />
+                  <button className="btn" onClick={handleSearch}>Find</button>
                 </div>
-
               </div>
             </div>
           </div>
         </div>
       </section>
+
       <section className="bid_main_area">
         <div className="container">
           <div className="row">
-      
-              {
-                filters_data.map((filterdata ,f1) =>(
-                  <div className="col-xxl-6">
-                    <Link to="/bids-details">
-                  <div className="filter_box">
-                  <div className="image">
-                    <img src={filterdata.img} alt="" />
+            {clients &&
+              clients.map((filterdata, f1) => {
+                if (!filterdata.image_path) return null;
+                let img = "https://" + filterdata.image_path;
+                const date = new Date(filterdata.updated_at);
+                const hoursAgo = new Date().getHours() - date.getHours();
+
+                return (
+                  <div className="col-xxl-6" key={f1}>
+                    <Link to={`/bids-details/${filterdata.id}`}>
+                      <div className="filter_box">
+                        <div className="image">
+                          <img src={img} alt="" />
+                        </div>
+                        <div className="content">
+                          <div className="box_1">
+                            <span className="price">Budget {filterdata.cost} INR</span>
+                            <span className="location">
+                              <i className="fa-solid fa-location-dot"></i> {filterdata.location}
+                            </span>
+                            <span className="task">Total Review Task {filterdata.total_reviews}</span>
+                            <div className="stars_box">
+                              <span>
+                                <i className="fa-solid fa-star"></i>
+                                <span>0.0</span>
+                              </span>
+                              <div className="details_bide">
+                                <span>{hoursAgo} Hours Ago</span>
+                                <i className="fa-solid fa-bookmark"></i>
+                              </div>
+                            </div>
+                            <button className="btn_review_sub">Review Now</button>
+                          </div>
+                          <div style={{ width: 150, height: 150 }} >
+                            <CircularProgressbar value={filterdata.percentage} text={`${filterdata.percentage || 0}%`} />
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
                   </div>
-                  <div className="content">
-                    <div className="box_1">
-                    <h4>{filterdata.headding}
-                    </h4>
-                    <span className='price'>Budget  {filterdata.pr_1} INR – {filterdata.pr_2} INR</span>
-                    <span className='location'><i class="fa-solid fa-location-dot"></i> Jaipur</span>
-                    <span className='task'>Total Review Task 20/100</span>
-                  {/* <p>{filterdata.disc}</p> */}
-                  <div className="stars_box">
-                       <span>
-                       <i class="fa-solid fa-star"></i>
-                       <i class="fa-solid fa-star"></i>
-                       <i class="fa-solid fa-star"></i>
-                       <i class="fa-solid fa-star"></i>
-                       <i class="fa-solid fa-star"></i>
-                       <span>0.0</span>
-                       </span>
-                       <div className="details_bide">
-                           <span>{filterdata.time} Ago</span>
-                           <i class="fa-solid fa-bookmark"></i>
-                       </div>
-                  </div>
-                  <button className='btn_review_sub'>
-                   Review Now
-                  </button>
-                    </div>
-                    <div class="progress blue">
-                 <span class="progress-left">
-                                   <span class="progress-bar"></span>
-                 </span>
-                 <span class="progress-right">
-                                   <span class="progress-bar"></span>
-                 </span>
-                 <div class="progress-value">90%</div>
-               </div>
-                  </div>
-                
-  
-                </div>
-                </Link>
-                </div>
-                ))
-              }
-         
-         
+                );
+              })}
+
             <div className="col-xl-12">
               <div className="bid_pangets">
-                <p>Total Show Reviews : 40</p>
+                <p>Total Show Reviews : {clients.length}</p>
                 <ul>
-                  <li className='prev disabled'>
-                    prev
-                  </li>
-                  <li>
-                    1
-                  </li>
-                  <li className='active'>
-                    2
-                  </li>
-                  <li>
-                    3
-                  </li>
-                  <li>
-                    4
-                  </li>
-                  <li className='nex'>
-                    nex
-                  </li>
+                  <li className={`prev ${pageCount.currentPage === 1 ? 'disabled' : ''}`} onClick={handlePrevPage}>Prev</li>
+                  <li className="active">{pageCount.currentPage} of {pageCount.allPages}</li>
+                  <li className={`next ${pageCount.currentPage === pageCount.allPages ? 'disabled' : ''}`} onClick={handleNextPage}>Next</li>
                 </ul>
               </div>
             </div>
@@ -196,7 +183,7 @@ function Bids() {
       </section>
       <Footer />
     </>
-  )
+  );
 }
 
-export default Bids
+export default Bids;
